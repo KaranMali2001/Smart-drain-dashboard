@@ -13,6 +13,7 @@ import { Activity, Droplets, Zap, Gauge, LogOut } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
+import { sendMotorStatusEmail } from "@/lib/email-service"
 
 interface DashboardProps {
   user: User
@@ -39,6 +40,7 @@ export default function Dashboard({ user }: DashboardProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [totalReadings, setTotalReadings] = useState(0);
   const [currentDesign, setCurrentDesign] = useState(1);
+  const [previousMotorStatus, setPreviousMotorStatus] = useState<"ON" | "OFF" | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -67,28 +69,31 @@ export default function Dashboard({ user }: DashboardProps) {
             setLatestReading(newReading);
             setTotalReadings(iotData.count); // Set total readings from count field
             setIsConnected(true);
+
+            // Check for motor status change and send email if motor turns ON
+            if (previousMotorStatus !== null && previousMotorStatus !== newReading.motor && newReading.motor === "ON") {
+              console.log("Motor status changed to ON - sending email notification");
+              const emailData = {
+                motorStatus: newReading.motor,
+                distance: newReading.distance,
+                timestamp: newReading.ts,
+                reason: `Water level detected at ${newReading.distance.toFixed(1)}cm (below 200cm threshold)`,
+              };
+              
+              // Send email notification (don't await to avoid blocking UI)
+              sendMotorStatusEmail(emailData).catch(error => {
+                console.error("Failed to send motor status email:", error);
+              });
+            }
+            
+            // Update previous motor status
+            setPreviousMotorStatus(newReading.motor);
           }
         } else {
-          // Fallback to mock data if backend is not available
-          const mockData: SensorData = {
-            distance: Math.random() * 100 + 100,
-            motor: Math.random() > 0.5 ? "ON" : "OFF",
-            ts: Date.now(),
-          };
-          setSensorData((prev) => [...prev.slice(-49), mockData]);
-          setLatestReading(mockData);
           setIsConnected(false);
         }
       } catch (error) {
-        console.log("[v0] Backend connection failed, using mock data:", error);
-        // Fallback to mock data
-        const mockData: SensorData = {
-          distance: Math.random() * 100 + 100,
-          motor: Math.random() > 0.5 ? "ON" : "OFF",
-          ts: Date.now(),
-        };
-        setSensorData((prev) => [...prev.slice(-49), mockData]);
-        setLatestReading(mockData);
+        console.log("[v0] Backend connection failed:", error);
         setIsConnected(false);
       }
     };

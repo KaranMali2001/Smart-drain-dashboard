@@ -37,18 +37,7 @@ export function WeatherWidget({ designVariant }: WeatherWidgetProps) {
       if (weatherData) {
         setWeather(weatherData);
       } else {
-        // Fallback to mock data if API fails
-        const mockWeather: WeatherData = {
-          city: cityName,
-          temperature: Math.round(Math.random() * 30 + 10),
-          description: ["clear sky", "few clouds", "light rain"][
-            Math.floor(Math.random() * 3)
-          ],
-          humidity: Math.round(Math.random() * 40 + 40),
-          icon: "01d",
-        };
-        setWeather(mockWeather);
-        setError("Using mock data - Weather API not configured");
+        setError("Weather API not configured or failed to fetch data");
       }
     } catch (err) {
       setError("Failed to fetch weather data")
